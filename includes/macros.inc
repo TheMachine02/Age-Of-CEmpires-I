@@ -28,20 +28,14 @@
 	jr	nz, +_
 	ScrollRight()
 	ScrollUp()
-_:	dec	a
-	dec	a
-	dec	a
-	dec	a
+_:	sub	a, 4
 	and	a, %00011111
 	ld	(ix+OFFSET_X), a
 #endmacro
 
 #macro ScrollFieldLeft()
 	ld	a, (ix+OFFSET_X)
-	inc	a
-	inc	a
-	inc	a
-	inc	a
+	add	a, 4
 	and	a, %00011111
 	ld	(ix+OFFSET_X), a
 	jr	nz, +_
@@ -52,10 +46,7 @@ _:
 
 #macro ScrollFieldUp()
 	ld	a, (ix+OFFSET_Y)
-	inc	a
-	inc	a
-	inc	a
-	inc	a
+	add	a, 4
 	and	a, %00001111
 	ld	(ix+OFFSET_Y), a
 	jr	nz, +_
@@ -70,10 +61,7 @@ _:
 	jr	nz, +_
 	ScrollRight()
 	ScrollDown()
-_:	dec	a
-	dec	a
-	dec	a
-	dec	a
+_:	sub	a, 4
 	and	a, %00001111
 	ld	(ix+OFFSET_Y), a
 #endmacro

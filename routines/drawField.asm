@@ -22,7 +22,7 @@ _:	ld	(TopRowLeftOrRight), a
 	add	hl, de
 	ld	d, 0
 	ld	a, b
-	add	a, 15
+	add	a, 16
 	ld	e, a
 	add	hl, de
 	ld	(startingPosition), hl
@@ -40,7 +40,7 @@ _:	ld	(TopRowLeftOrRight), a
 	ld	bc, mapAddress
 	add	hl, bc
 	ld	ix, (_IYOffsets + TopLeftYTile)
-	ld	a, 23
+	ld	a, 24
 	ld	(TempSP2), sp
 	ld	sp, lcdWidth
 DisplayEachRowLoop:
@@ -92,15 +92,39 @@ TileIsOutOfField:
 	exx
 	ld	hl, blackBuffer
 _:	lea	de, iy
-	jp	DrawTiles
-ActuallyDisplayTile:
+	ld	bc, 2
+	ldir
+	add	iy, sp
+	lea	de, iy-2
+	ld	c, 6
+	ldir
+	add	iy, sp
+	lea	de, iy-4
+	ld	c, 10
+	ldir
+	add	iy, sp
+	lea	de, iy-6
+	ld	c, 14
+	ldir
+	add	iy, sp
+	lea	de, iy-8
+	ld	c, 18
+	ldir
+	add	iy, sp
+	lea	de, iy-10
+	ld	c, 22
+	ldir
+	add	iy, sp
+	lea	de, iy-12
+	ld	c, 26
+	ldir
 	add	iy, sp
 	lea	de, iy-14
 	ld	c, 30
 	ldir
 	add	iy, sp
-	lea	de, iy-15
-	ld	c, 32
+	lea	de, iy-16
+	ld	c, 34
 	ldir
 	add	iy, sp
 	lea	de, iy-14
@@ -134,11 +158,10 @@ ActuallyDisplayTile:
 	lea	de, iy-0
 	ldi
 	ldi
-	ld	de, 32 - (320 * 16)
-	jr	+_
+	ld	de, -(lcdWidth * 16)
+	add	iy, de
 SkipDrawingOfTile:
-	ld	de, 32
-_:	add	iy, de
+	lea	iy, iy + 32
 	exx
 	inc	de
 	dec	ix
@@ -166,22 +189,20 @@ _:	dec	a
 	jp	nz, DisplayEachRowLoop
 	ld	de, (currDrawingBuffer)
 	ld	hl, _resources \.r2
-	ld	bc, 320 * 15
+	ld	bc, _resources_size
 	ldir
 	ld	hl, blackBuffer
-	ld	bc, 320*40+32
-	ld	a, 160
+	ld	bc, lcdWidth * 40 + 32
+	ld	a, lcdHeight - 15
 _:	ldir
 	ex	de, hl
 	inc	b
 	add	hl, bc
 	ex	de, hl
-	ld	c, 32+32
+	ld	c, 32 + 32
 	dec	b
 	dec	a
 	jr	nz, -_
-	ld	bc, 320*25+32
-	ldir
 TempSP2 = $+1
 	ld	sp, 0
 	ret
@@ -191,43 +212,4 @@ DrawFieldEnd:
 .error "cursorImage data too large: ",$-DrawField," bytes!"
 #endif
     
-endrelocate()
-
-drawtiles_loc = $
-relocate(mpShaData)
-
-DrawTiles:
-	ld	bc, 2
-	ldir
-	add	iy, sp
-	lea	de, iy-2
-	ld	c, 6
-	ldir
-	add	iy, sp
-	lea	de, iy-4
-	ld	c, 10
-	ldir
-	add	iy, sp
-	lea	de, iy-6
-	ld	c, 14
-	ldir
-	add	iy, sp
-	lea	de, iy-8
-	ld	c, 18
-	ldir
-	add	iy, sp
-	lea	de, iy-10
-	ld	c, 22
-	ldir
-	add	iy, sp
-	lea	de, iy-12
-	ld	c, 26
-	ldir
-	jp	ActuallyDisplayTile
-DrawTilesEnd:
-
-#if $ - DrawTiles > 64
-.error "mpShaData data too large: ",$-DrawTiles," bytes!"
-#endif
-
 endrelocate()

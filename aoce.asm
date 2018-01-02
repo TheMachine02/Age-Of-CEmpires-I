@@ -164,9 +164,6 @@ RunProgram:
 	ld	de, DrawField
 	ld	bc, DrawFieldEnd - DrawField
 	ldir
-	ld	de, DrawTiles
-	ld	bc, DrawTilesEnd - DrawTiles
-	ldir
 	ld	hl, vRAM+(320*240)
 	ld	(currDrawingBuffer), hl
 	ld	de, mpLcdPalette
