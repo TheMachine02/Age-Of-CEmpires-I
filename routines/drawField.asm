@@ -18,21 +18,18 @@ _:	ld	(TopRowLeftOrRight), a
 	
 	ld	a, (ix + OFFSET_Y)
 	and	a, 4
-	add	a, 9 + 8
+	xor	a, 4
+	add	a, 12 + 8
 	ld	(DrawTile_Clipped_Height), a
 	ld	a, (ix + OFFSET_Y)
-	ld	c, 3
-	or	a, a
-	jr	z, $+3
-	inc	c
-	cp	a, 12
-	jr	nz, $+3
+	ld	c, 4
+	cp	a, 8
+	jr	c, $+3
 	inc	c
 	ld	a, c
 	ld	(TileHowManyRowsClipped), a
 	
 	ld	a, (ix + OFFSET_Y)	; Point to the output
-	add	a, 23 - 8		; We start at row 23 ...
 	ld	e, a
 	ld	d, 160
 	mlt	de
@@ -41,7 +38,7 @@ _:	ld	(TopRowLeftOrRight), a
 	add	hl, de
 	ld	d, 0
 	ld	a, b
-	add	a, 16			; ... and at column 16
+	add	a, 16			; We start at column 16
 	ld	e, a
 	add	hl, de
 	ld	(startingPosition), hl
@@ -59,7 +56,7 @@ _:	ld	(TopRowLeftOrRight), a
 	ld	bc, mapAddress
 	add	hl, bc
 	ld	ix, (_IYOffsets + TopLeftYTile)
-	ld	a, 27
+	ld	a, 29			; 29 rows
 	ld	(TempSP2), sp
 	ld	sp, lcdWidth
 DisplayEachRowLoop:
@@ -217,8 +214,9 @@ _:	cp	a, 2
 	ld	(TileDrawingRoutinePtr2), bc
 	ld	c, a
 	ld	a, (DrawTile_Clipped_Height)
-	sub	a, 8
+	sub	a, 9
 	jr	c, StopDisplayTiles
+	inc	a
 	ld	(DrawTile_Clipped_Height), a
 	ld	a, c
 _:	dec	a
@@ -229,8 +227,8 @@ StopDisplayTiles:
 	ld	bc, _resources_size
 	ldir
 	ld	hl, blackBuffer
-	ld	bc, lcdWidth * 40 + 32
-	ld	a, lcdHeight - 15 - 40
+	ld	bc, lcdWidth * 13 + 32
+	ld	a, lcdHeight - 15 - 13 + 1
 _:	ldir
 	ex	de, hl
 	inc	b
@@ -247,12 +245,10 @@ TempSP2 = $+1
 DrawTile_Clipped:
 	ld	(BackupIY), iy
 DrawTile_Clipped_Height = $+1
-	ld	a, 9
+	ld	a, 0
 	lea	de, iy
 	ld	bc, 2
 	ldir
-	dec	a
-	jp	z, +_
 	add	iy, sp
 	lea	de, iy-2
 	ld	c, 6
@@ -265,12 +261,12 @@ DrawTile_Clipped_Height = $+1
 	lea	de, iy-6
 	ld	c, 14
 	ldir
+	sub	a, 4
+	jp	z, +_
 	add	iy, sp
 	lea	de, iy-8
 	ld	c, 18
 	ldir
-	sub	a, 4
-	jp	z, +_
 	add	iy, sp
 	lea	de, iy-10
 	ld	c, 22
@@ -283,12 +279,12 @@ DrawTile_Clipped_Height = $+1
 	lea	de, iy-14
 	ld	c, 30
 	ldir
+	sub	a, 4
+	jr	z, +_
 	add	iy, sp
 	lea	de, iy-16
 	ld	c, 34
 	ldir
-	sub	a, 4
-	jr	z, +_
 	add	iy, sp
 	lea	de, iy-14
 	ld	c, 30
@@ -301,12 +297,12 @@ DrawTile_Clipped_Height = $+1
 	lea	de, iy-10
 	ld	c, 22
 	ldir
+	sub	a, 4
+	jr	z, +_
 	add	iy, sp
 	lea	de, iy-8
 	ld	c, 18
 	ldir
-	sub	a, 4
-	jr	z, +_
 	add	iy, sp
 	lea	de, iy-6
 	ld	c, 14
@@ -319,6 +315,8 @@ DrawTile_Clipped_Height = $+1
 	lea	de, iy-2
 	ld	c, 6
 	ldir
+	sub	a, 4
+	jr	z, +_
 	add	iy, sp
 	lea	de, iy-0
 	ldi
