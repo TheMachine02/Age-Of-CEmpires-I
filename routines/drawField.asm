@@ -17,8 +17,8 @@ _:	ld	(TopRowLeftOrRight), a
 	ld	(TileDrawingRoutinePtr2), hl
 	
 	ld	a, (ix + OFFSET_Y)
+	cpl
 	and	a, 4
-	xor	a, 4
 	add	a, 12 + 8
 	ld	(DrawTile_Clipped_Height), a
 	ld	a, (ix + OFFSET_Y)
