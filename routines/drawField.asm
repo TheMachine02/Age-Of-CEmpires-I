@@ -105,7 +105,8 @@ DisplayTile:
 	or	a, ixh
 	jr	nz, TileIsOutOfField
 ; a is zero here, just or it
-	or	a, (hl)			; Get the tile index
+	ld	a, (hl)
+	or	a, a
 	jp	z, SkipDrawingOfTile
 ; z flag is NZ here
 	exx				; Here are the main registers active
