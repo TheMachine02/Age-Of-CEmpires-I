@@ -12,8 +12,27 @@ DrawField:
 _:	ld	(TopRowLeftOrRight), a
 	ld	a, c
 	ld	(IncrementRowXOrNot1), a
+	ld	hl, DrawTile_Unclipped	; Set drawing routine
+	ld	(TileDrawingRoutinePtr1), hl
+	ld	(TileDrawingRoutinePtr2), hl
+	
+	ld	a, (ix + OFFSET_Y)
+	and	a, 4
+	add	a, 9 + 8
+	ld	(DrawTile_Clipped_Height), a
+	ld	a, (ix + OFFSET_Y)
+	ld	c, 3
+	or	a, a
+	jr	z, $+3
+	inc	c
+	cp	a, 12
+	jr	nz, $+3
+	inc	c
+	ld	a, c
+	ld	(TileHowManyRowsClipped), a
+	
 	ld	a, (ix + OFFSET_Y)	; Point to the output
-	add	a, 31 - 8		; We start at row 31
+	add	a, 23 - 8		; We start at row 23 ...
 	ld	e, a
 	ld	d, 160
 	mlt	de
@@ -22,7 +41,7 @@ _:	ld	(TopRowLeftOrRight), a
 	add	hl, de
 	ld	d, 0
 	ld	a, b
-	add	a, 16
+	add	a, 16			; ... and at column 16
 	ld	e, a
 	add	hl, de
 	ld	(startingPosition), hl
@@ -40,7 +59,7 @@ _:	ld	(TopRowLeftOrRight), a
 	ld	bc, mapAddress
 	add	hl, bc
 	ld	ix, (_IYOffsets + TopLeftYTile)
-	ld	a, 24
+	ld	a, 27
 	ld	(TempSP2), sp
 	ld	sp, lcdWidth
 DisplayEachRowLoop:
@@ -58,7 +77,7 @@ DisplayEachRowLoop:
 
 startingPosition = $+2			; Here are the shadow registers active
 	ld	iy, 0
-	ld	bc, 8*320
+	ld	bc, 8 * lcdWidth
 	add	iy, bc
 	ld	(startingPosition), iy
 	bit	0, a
@@ -76,22 +95,27 @@ DisplayTile:
 	or	a, ixl
 	add	a, a
 	jr	c, TileIsOutOfField
-CheckWhatTypeOfTileItIs:
-	ld	a, (hl)
-	exx				; Here are the main registers active
+	ld	a, (hl)			; Get the tile index
 	or	a, a
 	jp	z, SkipDrawingOfTile
+	exx				; Here are the main registers active
 	ld	c, a
 	ld	b, 3
 	mlt	bc
 	ld	hl, TilePointers - 3
 	add	hl, bc
 	ld	hl, (hl)		; Pointer to the tile
-	jr	+_
+TileDrawingRoutinePtr1 = $+1
+	jp	DrawTile_Unclipped	; This will be modified to the clipped version after 25 rows
+	
 TileIsOutOfField:
 	exx
 	ld	hl, blackBuffer
-_:	lea	de, iy
+TileDrawingRoutinePtr2 = $+1
+	jp	DrawTile_Unclipped	; This will be modified to the clipped version after 25 rows
+	
+DrawTile_Unclipped:
+	lea	de, iy
 	ld	bc, 2
 	ldir
 	add	iy, sp
@@ -160,9 +184,9 @@ _:	lea	de, iy
 	ldi
 	ld	de, -(lcdWidth * 16)
 	add	iy, de
-SkipDrawingOfTile:
-	lea	iy, iy + 32
 	exx
+SkipDrawingOfTile:
+	lea	iy, iy + 32		; Skip to next tile
 	inc	de
 	dec	ix
 	ld	a, b
@@ -185,15 +209,28 @@ IncrementRowXOrNot1:
 	ld	bc, (-MAP_SIZE + 1) * 2
 	add	hl, bc
 	dec	ix
+TileHowManyRowsClipped = $+1
+_:	cp	a, 2
+	jr	nc, +_
+	ld	bc, DrawTile_Clipped
+	ld	(TileDrawingRoutinePtr1), bc
+	ld	(TileDrawingRoutinePtr2), bc
+	ld	c, a
+	ld	a, (DrawTile_Clipped_Height)
+	sub	a, 8
+	jr	c, StopDisplayTiles
+	ld	(DrawTile_Clipped_Height), a
+	ld	a, c
 _:	dec	a
 	jp	nz, DisplayEachRowLoop
+StopDisplayTiles:
 	ld	de, (currDrawingBuffer)
 	ld	hl, _resources \.r2
 	ld	bc, _resources_size
 	ldir
 	ld	hl, blackBuffer
 	ld	bc, lcdWidth * 40 + 32
-	ld	a, lcdHeight - 15
+	ld	a, lcdHeight - 15 - 40
 _:	ldir
 	ex	de, hl
 	inc	b
@@ -206,6 +243,90 @@ _:	ldir
 TempSP2 = $+1
 	ld	sp, 0
 	ret
+	
+DrawTile_Clipped:
+	ld	(BackupIY), iy
+DrawTile_Clipped_Height = $+1
+	ld	a, 9
+	lea	de, iy
+	ld	bc, 2
+	ldir
+	dec	a
+	jp	z, +_
+	add	iy, sp
+	lea	de, iy-2
+	ld	c, 6
+	ldir
+	add	iy, sp
+	lea	de, iy-4
+	ld	c, 10
+	ldir
+	add	iy, sp
+	lea	de, iy-6
+	ld	c, 14
+	ldir
+	add	iy, sp
+	lea	de, iy-8
+	ld	c, 18
+	ldir
+	sub	a, 4
+	jp	z, +_
+	add	iy, sp
+	lea	de, iy-10
+	ld	c, 22
+	ldir
+	add	iy, sp
+	lea	de, iy-12
+	ld	c, 26
+	ldir
+	add	iy, sp
+	lea	de, iy-14
+	ld	c, 30
+	ldir
+	add	iy, sp
+	lea	de, iy-16
+	ld	c, 34
+	ldir
+	sub	a, 4
+	jr	z, +_
+	add	iy, sp
+	lea	de, iy-14
+	ld	c, 30
+	ldir
+	add	iy, sp
+	lea	de, iy-12
+	ld	c, 26
+	ldir
+	add	iy, sp
+	lea	de, iy-10
+	ld	c, 22
+	ldir
+	add	iy, sp
+	lea	de, iy-8
+	ld	c, 18
+	ldir
+	sub	a, 4
+	jr	z, +_
+	add	iy, sp
+	lea	de, iy-6
+	ld	c, 14
+	ldir
+	add	iy, sp
+	lea	de, iy-4
+	ld	c, 10
+	ldir
+	add	iy, sp
+	lea	de, iy-2
+	ld	c, 6
+	ldir
+	add	iy, sp
+	lea	de, iy-0
+	ldi
+	ldi
+_:	ld	iy, 0
+BackupIY = $-3
+	exx
+	jp	SkipDrawingOfTile
 DrawFieldEnd:
 
 #if $ - DrawField > 1024

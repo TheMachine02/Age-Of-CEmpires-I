@@ -199,11 +199,11 @@ CheckKeys28:				; Check [2], [8]
 	and	a, (1 << kp2) | (1 << kp8)
 	jr	z, CheckKeys147
 CheckKey2:
-	bit	kp3, (hl)
+	bit	kp2, (hl)
 	jr	z, CheckKey8
 	ScrollFieldDown()
 CheckKey8:
-	bit	kp9, (hl)
+	bit	kp8, (hl)
 	jr	z, CheckKeys147
 	ScrollFieldUp()
 CheckKeys147:				; Check [1], [4], [7]
