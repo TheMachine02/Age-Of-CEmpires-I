@@ -12,22 +12,21 @@ DrawField:
 _:	ld	(TopRowLeftOrRight), a
 	ld	a, c
 	ld	(IncrementRowXOrNot1), a
+	ld	hl, (DrawTile_Unclipped - TileDrawingRoutinePtr1 - 2) & 0FFh << 8 + 18h		; Write JR <offset>
+	ld	(TileDrawingRoutinePtr1), hl
+	ld	hl, (DrawTile_Unclipped - TileDrawingRoutinePtr2 - 2) & 0FFh << 8 + 18h		; Write JR <offset>
+	ld	(TileDrawingRoutinePtr2), hl
 
-	ld	a, 028h
-	ld	(TileDrawingRoutinePtr1), a
-	
 	ld	a, (ix + OFFSET_Y)
 	cpl
 	and	a, 4
 	add	a, 12 + 8
 	ld	(DrawTile_Clipped_Height), a
-	ld	a, (ix + OFFSET_Y)
- 	rra
-	rra
-	rra
-	and	a, 1
-	add	a, 4 
+	ld	a, 7
+	cp	a, (ix + OFFSET_Y)
+	adc	a, -3
 	ld	(TileHowManyRowsClipped), a
+	
 	ld	a, (ix + OFFSET_Y)	; Point to the output
 	ld	e, a
 	ld	d, 160
@@ -58,17 +57,6 @@ _:	ld	(TopRowLeftOrRight), a
 	ld	a, 29			; 29 rows
 	ld	(TempSP2), sp
 	ld	sp, lcdWidth
-	jr	DisplayEachRowLoop
-EnclosedDisplayJump:
-
-TriggerCliping:
-	jp	DrawTile_Clipped
-TileIsOutOfField:
-; z flag is correctly set for correct clip jump
-	exx
-	ld	hl, blackbuffer
-	jr	TileDrawingRoutinePtr1
-
 DisplayEachRowLoop:
 ; Registers:
 ;   BC  = length of row tile
@@ -91,10 +79,8 @@ startingPosition = $+2			; Here are the shadow registers active
 	jr	nz, +_
 TopRowLeftOrRight = $+2
 	lea	iy, iy+0
-_:	
-	ex	af, af'	; actually ex flag from bit 0,a
+_:	ex	af, af'
 	ld	a, 9
-
 DisplayTile:
 	ld	b, a
 	ld	a, e
@@ -104,21 +90,33 @@ DisplayTile:
 	or	a, d
 	or	a, ixh
 	jr	nz, TileIsOutOfField
-; a is zero here, just or it
-	ld	a, (hl)
-	or	a, a
+	or	a, (hl)			; Get the tile index
 	jp	z, SkipDrawingOfTile
-; z flag is NZ here
 	exx				; Here are the main registers active
-	ld	c, a
+	cp	a, TILE_STONE_2 + 1
+	jr	c, +_
+	cp	a, TILE_TREE
+	;jp	nc, DisplayTileWithTree
+	;jp	DisplayBuilding
+_:	ld	c, a
 	ld	b, 3
 	mlt	bc
 	ld	hl, TilePointers - 3
 	add	hl, bc
 	ld	hl, (hl)		; Pointer to the tile
 TileDrawingRoutinePtr1 = $
-	jr	z, TriggerCliping	; z = never jump, nz=jump
-; actually use the z flag as a general flag since we know his status at this point of execution
+	jr	DrawTile_Unclipped	; This will be modified to the clipped version after X rows
+	.db	0
+	.db	DrawTile_Clipped >> 16
+	
+TileIsOutOfField:
+	exx
+	ld	hl, blackBuffer
+TileDrawingRoutinePtr2 = $
+	jr	DrawTile_Unclipped	; This will be modified to the clipped version after X rows
+	.db	0
+	.db	DrawTile_Clipped >> 16
+	
 DrawTile_Unclipped:
 	lea	de, iy
 	ld	bc, 2
@@ -199,39 +197,34 @@ SkipDrawingOfTile:
 	add	hl, bc
 	dec	a
 	jp	nz, DisplayTile
-
 	ex	af, af'
-; previous ex also saved flag
 IncrementRowXOrNot1:
 	jr	nz, +_
 	inc	de
-	add	hl, bc	; bc still hold the correct value to add :)
+	add	hl, bc
 	dec	ix
-_:
-	ex	de, hl
-	ld	c, -9		; bc was previously <0
+_:	ex	de, hl
+	ld	c, -9
 	add	hl, bc
 	ex	de, hl
 	ld	bc, (MAP_SIZE * 10 - 9) * 2
 	add	hl, bc
 	lea	ix, ix+9+1
-
 TileHowManyRowsClipped = $+1
-	cp	a, 2
+	cp	a, 0
 	jr	nc, +_
+	ld	bc, DrawTile_Clipped & 0FFFFh << 8 + 0C3h
+	ld	(TileDrawingRoutinePtr1), bc
+	ld	(TileDrawingRoutinePtr2), bc
 	ld	c, a
-	ld	a, 020h
-	ld	(TileDrawingRoutinePtr1), a
 	ld	a, (DrawTile_Clipped_Height)
 	sub	a, 9
 	jr	c, StopDisplayTiles
 	inc	a
 	ld	(DrawTile_Clipped_Height), a
 	ld	a, c
-_:	
-	dec	a
+_:	dec	a
 	jp	nz, DisplayEachRowLoop
-
 StopDisplayTiles:
 	ld	de, (currDrawingBuffer)
 	ld	hl, _resources \.r2
@@ -273,7 +266,7 @@ DrawTile_Clipped_Height = $+1
 	ld	c, 14
 	ldir
 	sub	a, 4
-	jp	z, +_
+	jp	z, StopDrawingTile
 	add	iy, sp
 	lea	de, iy-8
 	ld	c, 18
@@ -291,7 +284,7 @@ DrawTile_Clipped_Height = $+1
 	ld	c, 30
 	ldir
 	sub	a, 4
-	jr	z, +_
+	jr	z, StopDrawingTile
 	add	iy, sp
 	lea	de, iy-16
 	ld	c, 34
@@ -309,7 +302,7 @@ DrawTile_Clipped_Height = $+1
 	ld	c, 22
 	ldir
 	sub	a, 4
-	jr	z, +_
+	jr	z, StopDrawingTile
 	add	iy, sp
 	lea	de, iy-8
 	ld	c, 18
@@ -327,16 +320,104 @@ DrawTile_Clipped_Height = $+1
 	ld	c, 6
 	ldir
 	sub	a, 4
-	jr	z, +_
+	jr	z, StopDrawingTile
 	add	iy, sp
 	lea	de, iy-0
 	ldi
 	ldi
+StopDrawingTile:
 _:	ld	iy, 0
 BackupIY = $-3
 	exx
 	jp	SkipDrawingOfTile
+	
+DisplayTileWithTree:
+	ld	hl, TreePointers
+	sub	a, TILE_TREE
+	ld	c, a
+	ld	b, 3
+	mlt	bc
+	add	hl, bc
+	ld	hl, (hl)
+	jr	_RLETSprite_NoClip
+	exx
+	jp	SkipDrawingOfTile
+	
+DisplayBuilding:
+	exx
+	jp	SkipDrawingOfTile
+	
+	
+_RLETSprite_NoClip:
+; This routine is a slightly modified version of the routine in the GRAPHX library, because the screen pointer is already given
+; Inputs:
+;  IY = pointer to screen
+;  HL = pointer to sprite
+	ld	a, 2
+	ld	(-1), a
+	lea	de, iy			; de = screen pointer
+	ld	iy, (hl)		; iyh = height, iyl = width
+	ld	a, (hl)			; a = width
+	inc	hl
+	inc	hl			; hl = sprite data
+; Initialize values for looping.
+	ld	b, 0			; b = 0
+	dec	de			; decrement buffer pointer (negate inc)
+_RLETSprite_NoClip_Begin:
+; Generate the code to advance the buffer pointer to the start of the next row.
+	cpl				; a = 255-width
+	add	a, lcdWidth-255		; a = (lcdWidth-width)&0FFh
+	rra				; a = (lcdWidth-width)/2
+	ld	(_RLETSprite_NoClip_HalfRowDelta_SMC), a
+	sbc	a, a
+	sub	a, s8(_RLETSprite_NoClip_LoopJr_SMC+1-_RLETSprite_NoClip_Row_WidthEven)
+	ld	(_RLETSprite_NoClip_LoopJr_SMC), a
+; Row loop (if sprite width is odd)
+_RLETSprite_NoClip_Row_WidthOdd:
+	inc	de			; increment buffer pointer
+; Row loop (if sprite width is even) {
+_RLETSprite_NoClip_Row_WidthEven:
+	ld	a, iyl			; a = width
+;; Data loop {
+_RLETSprite_NoClip_Trans:
+;;; Read the length of a transparent run and skip that many bytes in the buffer.
+	ld	c, (hl)			; bc = trans run length
+	inc	hl
+	sub	a, c			; a = width remaining after trans run
+	ex	de, hl			; de = sprite, hl = buffer
+_RLETSprite_NoClip_TransSkip:
+	add	hl, bc			; skip trans run
+;;; Break out of data loop if width remaining == 0.
+	jr	z, _RLETSprite_NoClip_RowEnd ; z ==> width remaining == 0
+	ex	de, hl			; de = buffer, hl = sprite
+_RLETSprite_NoClip_Opaque:
+;;; Read the length of an opaque run and copy it to the buffer.
+	ld	c, (hl)			; bc = opaque run length
+	inc	hl
+	sub	a, c			; a = width remaining after opqaue run
+_RLETSprite_NoClip_OpaqueCopy:
+	ldir				; copy opaque run
+;;; Continue data loop while width remaining != 0.
+	jr	nz, _RLETSprite_NoClip_Trans ; nz ==> width remaining != 0
+	ex	de, hl			; de = sprite, hl = buffer
+;; }
+_RLETSprite_NoClip_RowEnd:
+;; Advance buffer pointer to the next row (minus one if width is odd).
+	ld	c, 0			; c = (lcdWidth-width)/2
+_RLETSprite_NoClip_HalfRowDelta_SMC = $-1
+	add	hl, bc			; advance buffer to next row
+	add	hl, bc
+	ex	de, hl			; de = buffer, hl = sprite
+;; Decrement height remaining. Continue row loop while not zero.
+	dec	iyh			; decrement height remaining
+	jr	nz, _RLETSprite_NoClip_Row_WidthEven ; nz ==> height remaining != 0
+_RLETSprite_NoClip_LoopJr_SMC = $-1
+; }
+; Done.
+	jp	SkipDrawingOfTile
 DrawFieldEnd:
+
+.echo $ - DrawField
 
 #if $ - DrawField > 1024
 .error "cursorImage data too large: ",$-DrawField," bytes!"
